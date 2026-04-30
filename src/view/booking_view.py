@@ -141,16 +141,8 @@ def booking_view(page):
 
         lista.controls.clear()
 
-        if (
-            cedula.value == "" or
-            nombre.value == "" or
-            destino.value is None or
-            horario.value is None or
-            fecha.value == "" or
-            seleccion_carro.value is None
-        ):
-            lista.controls.append(ft.Text("Complete todos los campos"))
-            page.update()
+        if "-" not in fecha.value:
+            mostrar_mensaje("Formato de fecha invalido", error=True)
             return
 
         cliente = Cliente(
