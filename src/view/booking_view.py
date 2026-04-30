@@ -16,6 +16,40 @@ def booking_view(page):
     foto = ft.TextField(hint_text="Foto (Ruta)", color="black")
     activo = ft.Switch(label="Activo", value=True)
 
+    lista = ft.Column()
+
+    def validar_campos(funcion):
+        def wrapper(e):
+            if (
+                cedula.value == "" or
+                nombre.value == "" or
+                destino.value is None or 
+                horario.value is None or
+                fecha.value == "" or
+                seleccion_carro.value is None
+
+            ):
+                mostrar_mensaje("Complete todos los campos", error=True)
+                return
+            return funcion(e)
+        return wrapper
+    
+    
+    def mostrar_mensaje(*args, **kwargs):
+        texto = ""
+
+        for arg in args:
+            texto+= str(arg) + " "
+
+        
+        if "error" in kwargs:
+            lista.controls.append(ft.Text(texto, color="red"))
+        
+        else:
+            lista.controls.append(ft.Text(texto))
+        
+        page.update()
+
 
     carros_por_ciudad = {
         "Bogota": [
@@ -82,10 +116,7 @@ def booking_view(page):
 
     fecha = ft.TextField(hint_text="Fecha (DD-MM-AAAA)", color="black")
 
-    lista = ft.Column()
-
     
-
     def confirmar(reserva, texto, boton):
         reserva.confirmar_reserva()
         texto.value = reserva.imprimir()
@@ -105,7 +136,7 @@ def booking_view(page):
         page.update()
 
     
-
+    @validar_campos
     def reservar(e):
 
         lista.controls.clear()
@@ -132,8 +163,7 @@ def booking_view(page):
         )
 
         if not cliente.get_activo():
-            lista.controls.append(ft.Text("Cliente inactivo"))
-            page.update()
+            mostrar_mensaje("Cliente inactivo", error=True)
             return
 
         carro_obtenido = None
@@ -144,13 +174,11 @@ def booking_view(page):
 
         
         if carro_obtenido is None:
-            lista.controls.append(ft.Text("Seleccione un carro válido"))
-            page.update()
+            mostrar_mensaje("Seleccione un carro válido", error=True)
             return
 
         if carro_obtenido.get_en_mantenimiento():
-            lista.controls.append(ft.Text("Carro en mantenimiento"))
-            page.update()
+            mostrar_mensaje("Carro en mantenimiento", error=True)
             return
 
         contador = 0
@@ -164,7 +192,8 @@ def booking_view(page):
                 contador += 1
 
         if contador >= 4:
-            lista.controls.append(ft.Text("Carro lleno (Max 4 pasajeros)"))
+            mostrar_mensaje("Carro lleno (Max 4 pasajeros)", error=True)
+        
         else:
             nueva = Reserva(
                 cliente,
@@ -177,9 +206,8 @@ def booking_view(page):
             reservas.append(nueva)
             contador += 1
 
-            lista.controls.append(
-                ft.Text(f"Pasajeros actuales: {contador}/4")
-            )
+            mostrar_mensaje("Pasajeros actuales:", contador, "/4")
+            
 
             texto_reserva = ft.Text(nueva.imprimir())
 
