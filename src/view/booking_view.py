@@ -121,7 +121,7 @@ def booking_view(page):
         reserva.confirmar_reserva()
         texto.value = reserva.imprimir()
 
-        # limpiar campos
+    
         cedula.value = ""
         nombre.value = ""
         apellido.value = ""
