@@ -54,7 +54,7 @@ def crear_tabla_reservas():
                 estado TEXT DEFAULT 'Pendiente',
                        
                 FOREIGN KEY (usuario_id)
-                REFERENCES usuario(id)
+                REFERENCES usuarios(id)
             )
         """)
 
