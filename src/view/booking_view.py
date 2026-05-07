@@ -2,6 +2,7 @@ import flet as ft
 from models.clientes import Cliente
 from models.carros import Carro
 from models.reservas import Reserva
+from main_sqlite3 import (insertar_usuario, insertar_reserva)
 
 
 def booking_view(page):
@@ -196,6 +197,22 @@ def booking_view(page):
             )
 
             reservas.append(nueva)
+
+            insertar_usuario(
+                nombre.value,
+                f"{nombre.value.lower()}@revite.com",
+                cedula.value,
+                celular.value
+            )
+
+            insertar_reserva(
+                1,
+                destino.value,
+                horario.value,
+                fecha.value,
+                carro_obtenido.get_placa()
+            )
+            
             contador += 1
 
             mostrar_mensaje("Pasajeros actuales:", contador, "/4")
