@@ -271,12 +271,12 @@ def booking_view(page):
         perfil_celular_input.value = usuario_actual["celular"]
     
     def guardar_cambios_perfil(e):
-        print("CLICK EN GUARDAR PERFIL")  # 👈 DEBUG agregado
+        print("CLICK EN GUARDAR PERFIL")  
 
-        nombre = perfil_nombre_input.value   # 👈 simplificado
+        nombre = perfil_nombre_input.value   
         celular = perfil_celular_input.value
 
-        if nombre == "" or celular == "":   # 👈 VALIDACIÓN NUEVA
+        if nombre == "" or celular == "":   
             mostrar_mensaje(lista_mensajes, page, "Completa los campos del perfil", error=True)
             return
 
@@ -291,7 +291,7 @@ def booking_view(page):
 
         mostrar_mensaje(lista_mensajes, page, "Perfil actualizado correctamente")
 
-        actualizar_perfil()   # 👈 ESTE ERA CLAVE
+        actualizar_perfil()   
         page.update()
     
     # -------- COMPONENTES --------
