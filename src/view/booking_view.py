@@ -2,277 +2,422 @@ import flet as ft
 from models.clientes import Cliente
 from models.carros import Carro
 from models.reservas import Reserva
-from main_sqlite3 import (insertar_usuario, insertar_reserva)
+from controllers.mensajes import mostrar_mensaje
+from controllers.validaciones import validar_campos
+from controllers.validaciones import validar_fecha
+
+from database.main_sqlite3 import insertar_usuario, insertar_reserva, buscar_usuario_cedula, actualizar_usuario
 
 
 def booking_view(page):
-
     reservas = []
+    usuario_actual = {"cedula": "", "nombre": "", "apellido": "", "celular": ""}
 
+    # -------- CAMPOS --------
+    cedula_busqueda = ft.TextField(hint_text="Ingrese su cédula", width=300)
     
-    cedula = ft.TextField(hint_text="Cedula", color="black")
-    nombre = ft.TextField(hint_text="Nombres", color="black")
-    apellido = ft.TextField(hint_text="Apellidos", color="black")
-    celular = ft.TextField(hint_text="Celular", color="black")
-    foto = ft.TextField(hint_text="Foto (Ruta)", color="black")
-    activo = ft.Switch(label="Activo", value=True)
-
-    lista = ft.Column()
-
-    def validar_campos(funcion):
-        def wrapper(e):
-            if (
-                cedula.value == "" or
-                nombre.value == "" or
-                destino.value is None or 
-                horario.value is None or
-                fecha.value == "" or
-                seleccion_carro.value is None
-
-            ):
-                mostrar_mensaje("Complete todos los campos", error=True)
-                return
-            return funcion(e)
-        return wrapper
+    registro_cedula = ft.TextField(hint_text="Cédula", width=300)
+    registro_nombre = ft.TextField(hint_text="Nombre", width=300)
+    registro_apellido = ft.TextField(hint_text="Apellido", width=300)
+    registro_celular = ft.TextField(hint_text="Celular", width=300)
     
-    
-    def mostrar_mensaje(*args, **kwargs):
-        texto = ""
-
-        for arg in args:
-            texto+= str(arg) + " "
-
-        
-        if "error" in kwargs:
-            lista.controls.append(ft.Text(texto, color="red"))
-        
-        else:
-            lista.controls.append(ft.Text(texto))
-        
-        page.update()
-
-
-    carros_por_ciudad = {
-        "Bogota": [
-            Carro("ABC123", "Toyota", "2020"),
-            Carro("DEF456", "Ford", "2022"),
-            Carro("GHI789", "Mazda", "2021")
-        ],
-        "Ibague": [
-            Carro("LXS029", "Chevrolet", "2023"),
-            Carro("JKL111", "Kia", "2020"),
-            Carro("MNO222", "Nissan", "2019")
-        ],
-        "Espinal": [
-            Carro("PQR333", "Hyundai", "2022"),
-            Carro("STU444", "Renault", "2021"),
-            Carro("VWX555", "Suzuki", "2020")
-        ]
-    }
-
-    seleccion_carro = ft.Dropdown(hint_text="Carro", options=[])
-
-    
-
-    def actualizar_carros(e):
-        ciudad = destino.value
-
-        if ciudad is None:
-            return
-
-        seleccion_carro.options.clear()
-
-        for carro in carros_por_ciudad[ciudad]:
-            seleccion_carro.options.append(
-                ft.dropdown.Option(carro.get_placa())
-            )
-
-        seleccion_carro.value = None
-        seleccion_carro.update()
-
-    
-    destino = ft.Dropdown(
-        hint_text="Destino",
-        options=[
-            ft.dropdown.Option("Bogota"),
-            ft.dropdown.Option("Ibague"),
-            ft.dropdown.Option("Espinal")
-        ]
-    )
-
-    boton_cargar = ft.ElevatedButton(
-        "Cargar carros",
-        on_click=actualizar_carros
-    )
-
     horario = ft.Dropdown(
         hint_text="Hora de salida",
+        width=300,
         options=[
             ft.dropdown.Option("5:00"),
             ft.dropdown.Option("5:30"),
             ft.dropdown.Option("6:00"),
-            ft.dropdown.Option("7:00")
-        ]
+            ft.dropdown.Option("7:00"),
+        ],
     )
-
-    fecha = ft.TextField(hint_text="Fecha (DD-MM-AAAA)", color="black")
-
     
-    def confirmar(reserva, texto, boton):
+    fecha = ft.TextField(hint_text="Seleccione una fecha", read_only=True, width=300)
+    
+    seleccion_carro = ft.Dropdown(hint_text="Carro", width=300, options=[])
+    
+    lista_reservas = ft.Column()
+    lista_mensajes = ft.Column()
+
+    # -------- CONTENEDORES --------
+    inicio = ft.Column(horizontal_alignment="center")
+    barra_tabs = ft.Row(alignment="center", visible=False)
+    vista_reservar = ft.Column(visible=False, horizontal_alignment="center")
+    vista_reservas = ft.Column(visible=False)
+    vista_perfil = ft.Column(visible=False)
+
+    # -------- DATOS --------
+    carros_por_ciudad = {
+    "Bogotá": [
+        Carro("ABC123", "Toyota", "2020"),
+        Carro("DEF456", "Ford", "2022"),
+        Carro("GHI789", "Mazda", "2021")
+    ],
+
+    "Ibagué": [
+        Carro("LXS029", "Chevrolet", "2023"),
+        Carro("JKL111", "Kia", "2020"),
+        Carro("MNO222", "Nissan", "2019")
+    ],
+
+    "Espinal": [
+        Carro("PQR333", "Hyundai", "2022"),
+        Carro("STU444", "Renault", "2021"),
+        Carro("VWX555", "Suzuki", "2020")
+    ]
+}
+    destino_actual = {"valor": None}
+
+    # -------- FUNCIONES UI --------
+    def cambiar_vista(nombre):
+        inicio.visible = False
+        vista_reservar.visible = False
+        vista_reservas.visible = False
+        vista_perfil.visible = False
+
+        if nombre == "reservar":
+            vista_reservar.visible = True
+        elif nombre == "mis_reservas":
+            vista_reservas.visible = True
+        elif nombre == "perfil":
+            vista_perfil.visible = True
+
+        actualizar_reservas()
+        actualizar_perfil()
+        page.update()
+
+    def entrar_cliente(e):
+        usuario = buscar_usuario_cedula(cedula_busqueda.value)
+        
+        if not usuario:
+            mostrar_mensaje(lista_reservas, page, "Cliente no encontrado", error=True)
+            return
+        
+        usuario_actual["nombre"] = usuario[1]
+        usuario_actual["cedula"] = usuario[3]
+        usuario_actual["celular"] = usuario[4]
+        
+        inicio.visible = False
+        barra_tabs.visible = True
+        
+        cambiar_vista("reservar")
+
+    def registrar_nuevo(e):
+    
+        if (
+            registro_cedula.value == "" or
+            registro_nombre.value == "" or
+            registro_apellido.value == "" or
+            registro_celular.value == ""
+        ):
+            return
+
+        insertar_usuario(
+            registro_nombre.value,
+            f"{registro_nombre.value.lower()}@revite.com",
+            registro_cedula.value,
+            registro_celular.value
+        )
+
+        usuario_actual["cedula"] = registro_cedula.value
+        usuario_actual["nombre"] = registro_nombre.value
+        usuario_actual["apellido"] = registro_apellido.value
+        usuario_actual["celular"] = registro_celular.value
+
+        inicio.visible = False
+        barra_tabs.visible = True
+
+        cambiar_vista("perfil")
+
+
+    def entrar_nuevo(e):
+
+        inicio.controls = [
+
+            ft.Text("Registro nuevo usuario", size=25, weight="bold"),
+            registro_cedula,
+            registro_nombre,
+            registro_apellido,
+            registro_celular,
+
+            ft.ElevatedButton("Guardar registro", on_click=registrar_nuevo)
+        ]
+        page.update()
+
+    def seleccionar_destino(ciudad):
+        destino_actual["valor"] = ciudad
+
+        lista_opciones = []
+
+        for c in carros_por_ciudad[ciudad]:
+            opcion = ft.dropdown.Option(c.get_placa())
+            lista_opciones.append(opcion)
+
+        seleccion_carro.options = lista_opciones
+        seleccion_carro.value = None
+        page.update()
+
+    def seleccionar_fecha(e):
+        fecha.value = e.control.value.strftime("%d-%m-%Y")
+        page.update()
+
+    calendario = ft.DatePicker(on_change=seleccionar_fecha)
+    page.overlay.append(calendario)
+
+    def reservar(e):
+        if not validar_campos(destino_actual["valor"], horario, fecha, seleccion_carro):
+            mostrar_mensaje(lista_mensajes, page, "Completa los datos del viaje", error=True)
+            return
+
+        if not validar_fecha(fecha):
+            mostrar_mensaje(lista_mensajes, page, "No puedes reservar en fechas pasadas", error=True)
+            return
+            
+
+        cliente = Cliente(
+            usuario_actual["cedula"],
+            usuario_actual["nombre"],
+            usuario_actual["apellido"],
+            usuario_actual["celular"],
+            "",
+            True,
+        )
+
+        carro = None
+        
+        for c in carros_por_ciudad[destino_actual["valor"]]:
+            if c.get_placa() == seleccion_carro.value:
+                carro = c
+                break
+        
+        nueva = Reserva(cliente, destino_actual["valor"], horario.value, fecha.value, carro)
+        
+        reservas.append(nueva)
+        insertar_reserva(usuario_actual["cedula"],destino_actual["valor"],horario.value,fecha.value,carro.get_placa())
+        cambiar_vista("mis_reservas")
+
+    def confirmar_reserva(reserva, texto, boton):
         reserva.confirmar_reserva()
         texto.value = reserva.imprimir()
-
-    
-        cedula.value = ""
-        nombre.value = ""
-        apellido.value = ""
-        celular.value = ""
-        foto.value = ""
-        destino.value = None
-        horario.value = None
-        fecha.value = ""
-        seleccion_carro.value = None
-
         boton.visible = False
         page.update()
 
-    
-    @validar_campos
-    def reservar(e):
-
-        lista.controls.clear()
-
-        if "-" not in fecha.value:
-            mostrar_mensaje("Formato de fecha invalido", error=True)
-            return
-
-        cliente = Cliente(
-            cedula.value,
-            nombre.value,
-            apellido.value,
-            celular.value,
-            foto.value,
-            activo.value
-        )
-
-        if not cliente.get_activo():
-            mostrar_mensaje("Cliente inactivo", error=True)
-            return
-
-        carro_obtenido = None
-
-        for carro in carros_por_ciudad[destino.value]:
-            if carro.get_placa() == seleccion_carro.value:
-                carro_obtenido = carro
-
+    def eliminar_reserva(reserva):
+        if reserva in reservas:
+            reservas.remove(reserva)
+            actualizar_reservas()
+            page.update()
         
-        if carro_obtenido is None:
-            mostrar_mensaje("Seleccione un carro válido", error=True)
-            return
 
-        if carro_obtenido.get_en_mantenimiento():
-            mostrar_mensaje("Carro en mantenimiento", error=True)
-            return
 
-        contador = 0
+    def actualizar_reservas():
+        lista_reservas.controls.clear()
 
         for r in reservas:
-            if (
-                r.get_carro().get_placa() == carro_obtenido.get_placa() and
-                r.get_hora_salida() == horario.value and
-                r.get_destino() == destino.value
-            ):
-                contador += 1
+            if r.get_cliente().get_cedula() == usuario_actual["cedula"]:
 
-        if contador >= 4:
-            mostrar_mensaje("Carro lleno (Max 4 pasajeros)", error=True)
-        
-        else:
-            nueva = Reserva(
-                cliente,
-                destino.value,
-                horario.value,
-                fecha.value,
-                carro_obtenido
-            )
+                texto = ft.Text(
+                    r.imprimir()
+                )
 
-            reservas.append(nueva)
+                boton_confirmar = ft.ElevatedButton(
+                    "Confirmar"
+                )
 
-            insertar_usuario(
-                nombre.value,
-                f"{nombre.value.lower()}@revite.com",
-                cedula.value,
-                celular.value
-            )
+                boton_confirmar.on_click = (
+                    lambda e,
+                    rr=r,
+                    t=texto,
+                    b=boton_confirmar:
+                    confirmar_reserva(
+                        rr,
+                        t,
+                        b
+                    )
+                )
 
-            insertar_reserva(
-                1,
-                destino.value,
-                horario.value,
-                fecha.value,
-                carro_obtenido.get_placa()
-            )
-            
-            contador += 1
+                boton_eliminar = ft.ElevatedButton(
+                    "Eliminar",
+                    color="white",
+                    bgcolor="red",
+                    on_click=lambda e, rr=r:
+                    eliminar_reserva(rr)
+                )
 
-            mostrar_mensaje("Pasajeros actuales:", contador, "/4")
-            
+                lista_reservas.controls.append(
+                    ft.Container(
+                        content=ft.Column(
+                            [
+                                texto,
 
-            texto_reserva = ft.Text(nueva.imprimir())
+                                ft.Row(
+                                    [
+                                        boton_confirmar,
+                                        boton_eliminar
+                                    ]
+                                )
+                            ]
+                        ),
 
-            boton_confirmar = ft.ElevatedButton("Confirmar")
+                        bgcolor="#F5F5F5",
+                        border_radius=15,
+                        padding=15
+                    )
+                )
 
-            boton_confirmar.on_click = lambda e, r=nueva, t=texto_reserva, b=boton_confirmar: confirmar(r, t, b)
-
-            lista.controls.append(
-                ft.Row([texto_reserva, boton_confirmar])
-            )
-
-        page.update()
-
+    def actualizar_perfil():
+        perfil_cedula.value = f"Cédula: {usuario_actual['cedula']}"
+        perfil_nombre_input.value = usuario_actual["nombre"]
+        perfil_celular_input.value = usuario_actual["celular"]
     
+    def guardar_cambios_perfil(e):
+        print("CLICK EN GUARDAR PERFIL")  # 👈 DEBUG agregado
+
+        nombre = perfil_nombre_input.value   # 👈 simplificado
+        celular = perfil_celular_input.value
+
+        if nombre == "" or celular == "":   # 👈 VALIDACIÓN NUEVA
+            mostrar_mensaje(lista_mensajes, page, "Completa los campos del perfil", error=True)
+            return
+
+        usuario_actual["nombre"] = nombre
+        usuario_actual["celular"] = celular
+
+        actualizar_usuario(
+            usuario_actual["cedula"],
+            nombre,
+            celular
+        )
+
+        mostrar_mensaje(lista_mensajes, page, "Perfil actualizado correctamente")
+
+        actualizar_perfil()   # 👈 ESTE ERA CLAVE
+        page.update()
+    
+    # -------- COMPONENTES --------
+    barra_tabs.controls = [
+        ft.ElevatedButton("Reservar", on_click=lambda e: cambiar_vista("reservar")),
+        ft.ElevatedButton("Mis reservas", on_click=lambda e: cambiar_vista("mis_reservas")),
+        ft.ElevatedButton("Mi perfil", on_click=lambda e: cambiar_vista("perfil")),
+    ]
+
+    inicio.controls = [
+        ft.Text("ReViTe", size=32, weight="bold"),
+        ft.Text("Reserva tu viaje"),
+        cedula_busqueda,
+        ft.Row([
+            ft.ElevatedButton("Soy cliente", on_click=entrar_cliente),
+            ft.ElevatedButton("Soy nuevo", on_click=entrar_nuevo),
+        ], 
+        alignment="center"
+        )
+    ]
+
+    vista_reservar.controls = [
+        ft.Text("Datos del viaje", size=22, weight="bold"),
+
+        ft.Row([
+            ft.Container(
+                content=ft.Text("Bogotá"),
+                bgcolor="#F5F5F5",
+                padding=20,
+                border_radius=20,
+                on_click=lambda e: seleccionar_destino("Bogotá")
+            ),
+
+            ft.Container(
+                content=ft.Text("Ibagué"),
+                bgcolor="#F5F5F5",
+                padding=20,
+                border_radius=20,
+                on_click=lambda e: seleccionar_destino("Ibagué")
+            ),
+
+            ft.Container(
+                content=ft.Text("Espinal"),
+                bgcolor="#F5F5F5",
+                padding=20,
+                border_radius=20,
+                on_click=lambda e: seleccionar_destino("Espinal")
+            ),
+        ], alignment="center"),
+
+        horario,
+
+        fecha,
+
+        ft.ElevatedButton(
+            "Seleccionar fecha",
+            on_click=lambda e: setattr(
+                calendario,
+                "open",
+                True
+            ) or page.update()
+        ),
+
+        seleccion_carro,
+
+        ft.ElevatedButton(
+            "Reservar",
+            bgcolor="#1976D2",
+            color="white",
+            on_click=reservar
+        ),
+
+        # MENSAJES DE ERROR O CONFIRMACIÓN
+        lista_mensajes
+    ]
+
+    vista_reservas.controls = [
+        ft.Text("Mis reservas", size=22, weight="bold"),
+        lista_reservas,
+    ]
+
+    perfil_cedula = ft.Text()
+
+    perfil_nombre_input = ft.TextField(
+        label="Nombre"
+    )
+
+    perfil_celular_input = ft.TextField(
+        label="Celular"
+    )
+
+    vista_perfil.controls = [
+        ft.Text(
+            "Mi perfil",
+            size=22,
+            weight="bold"
+        ),
+
+        ft.Container(
+            content=ft.Column([
+                perfil_cedula,
+                perfil_nombre_input,
+                perfil_celular_input,
+
+                ft.ElevatedButton(
+                    "Guardar cambios",
+                    on_click=guardar_cambios_perfil
+                )
+            ]),
+            bgcolor="#F5F5F5",
+            border_radius=20,
+            padding=20,
+        ),
+
+        lista_mensajes
+    ]
 
     return ft.Container(
         padding=30,
-        content=ft.Column(
-            [
-                ft.Row(
-                    [ft.Text("Sistema ReViTe", size=25, weight="bold", color="black")],
-                    alignment="center"
-                ),
-
-                ft.Text("Datos del cliente", color="black"),
-                cedula,
-                nombre,
-                apellido,
-                celular,
-                foto,
-                activo,
-
-                ft.Divider(),
-
-                ft.Text("Datos del viaje", color="black"),
-                destino,
-                boton_cargar,
-                horario,
-                fecha,
-                seleccion_carro,
-
-                ft.ElevatedButton(
-                    "Reservar",
-                    on_click=reservar,
-                    bgcolor="blue",
-                    color="white"
-                ),
-
-                ft.Divider(),
-
-                ft.Text("Reservas realizadas", color="black"),
-                lista
-            ],
-            spacing=15,
-            scroll="auto"
-        )
+        content=ft.Column([
+            barra_tabs,
+            inicio,
+            vista_reservar,
+            vista_reservas,
+            vista_perfil,
+        ], spacing=20, scroll="auto")
     )
 
 

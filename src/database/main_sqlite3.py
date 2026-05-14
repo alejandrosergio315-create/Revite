@@ -1,9 +1,14 @@
 import sqlite3
 import os
 
+
 nombre_db = "base/Revite.db"
 
+
+
+
 def crear_base_de_datos():
+    
     try:
         
         conexion = sqlite3.connect(nombre_db)
@@ -70,6 +75,8 @@ def crear_tabla_reservas():
         if conexion:
             conexion.close()
 
+
+
 def insertar_usuario(nombre, correo, cedula, celular):
     
     try:
@@ -97,6 +104,8 @@ def insertar_usuario(nombre, correo, cedula, celular):
         if conexion:
             conexion.close()
 
+
+
 def consultar_usuarios():
     
     try:
@@ -118,6 +127,42 @@ def consultar_usuarios():
     finally:
         if conexion:
             conexion.close()
+
+
+
+def buscar_usuario_cedula(cedula):
+
+    try:
+
+        conexion = sqlite3.connect(nombre_db)
+
+        cursor = conexion.cursor()
+
+        sql = """
+        SELECT *
+        
+        FROM usuarios
+        
+        WHERE cedula = ?
+        
+        """
+        cursor.execute(sql, (cedula,))
+
+        usuario = cursor.fetchone()
+
+        return usuario
+    
+
+    except sqlite3.Error as e:
+
+        print(f"Error al buscar usuario: {e}")
+    
+    finally:
+
+        if conexion:
+            conexion.close()
+
+
 
 
 def insertar_reserva(usuario_id, destino, horario, fecha, carro):
@@ -149,6 +194,106 @@ def insertar_reserva(usuario_id, destino, horario, fecha, carro):
             conexion.close()
 
 
+
+
+def actualizar_reserva(id_reserva, destino, horario, fecha, carro):
+
+    try:
+
+        conexion = sqlite3.connect(nombre_db)
+        cursor = conexion.cursor()
+
+        sql = """
+        
+        UPDATE reservas
+        
+        SET destino = ?, 
+            horario = ?, 
+            fecha = ?, 
+            carro = ?
+        
+        WHERE id = ?
+        """
+
+        valores = (destino, horario, fecha, carro, id_reserva)
+
+        cursor.execute(sql, valores)
+
+        conexion.commit()
+
+        print("Reserva actualizada correctamente")
+    
+    except sqlite3.Error as e:
+
+        print(f"Error al actualizar reserva: {e}")
+    
+    finally:
+        
+        if conexion:
+            conexion.close()
+
+
+
+def eliminar_reserva(id_reserva):
+
+    try:
+
+        conexion = sqlite3.connect(nombre_db)
+
+        cursor = conexion.cursor()
+
+        sql = """
+        
+        DELETE FROM reservas
+        
+        WHERE id = ?
+        
+        """
+
+        valores = (id_reserva,)
+
+        cursor.execute(sql, valores)
+
+        conexion.commit()
+
+        print("Reserva eliminada correctamente")
+
+    except sqlite3.Error as e:
+
+        print(f"Error al eliminar reserva: {e}")
+
+    finally:
+
+        if conexion:
+            conexion.close()
+
+def actualizar_usuario(
+    cedula,
+    nombre,
+    celular
+):
+    import sqlite3
+
+    conexion = sqlite3.connect(nombre_db)
+
+    cursor = conexion.cursor()
+
+    cursor.execute(
+        """
+        UPDATE usuarios
+        SET nombre = ?, celular = ?
+        WHERE cedula = ?
+        """,
+        (
+            nombre,
+            celular,
+            cedula
+        )
+    )
+
+    conexion.commit()
+    conexion.close()
+
 if __name__ == "__main__":
     
     crear_base_de_datos()
@@ -156,11 +301,14 @@ if __name__ == "__main__":
     crear_tabla_reservas()
 
     insertar_usuario("Alejandro Villalobos", "alejo@example.com", "12345", "678910")
-    
     insertar_usuario("Ana Cortes", "cortes@example.com", "678910", "12345")
     
     insertar_reserva(1, "Bogota", "6:00", "10-05-2026", "ABC123")
     insertar_reserva(2, "Ibague", "7:00", "11-05-2026", "DEF456")
+
+    actualizar_reserva(1, "Medellin", "8:00", "20-05-2026", "XYZ999")
+
+    eliminar_reserva(2)
     
     consultar_usuarios()
     
