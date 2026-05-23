@@ -1,6 +1,8 @@
 import sqlite3
 import os
 
+os.makedirs("base", exist_ok=True)
+
 
 nombre_db = "base/Revite.db"
 
@@ -234,65 +236,46 @@ def actualizar_reserva(id_reserva, destino, horario, fecha, carro):
 
 
 
-def eliminar_reserva(id_reserva):
-
-    try:
-
-        conexion = sqlite3.connect(nombre_db)
-
-        cursor = conexion.cursor()
-
-        sql = """
-        
-        DELETE FROM reservas
-        
-        WHERE id = ?
-        
-        """
-
-        valores = (id_reserva,)
-
-        cursor.execute(sql, valores)
-
-        conexion.commit()
-
-        print("Reserva eliminada correctamente")
-
-    except sqlite3.Error as e:
-
-        print(f"Error al eliminar reserva: {e}")
-
-    finally:
-
-        if conexion:
-            conexion.close()
-
-def actualizar_usuario(
-    cedula,
-    nombre,
-    celular
-):
-    import sqlite3
-
+def eliminar_reserva_db(id_reserva):
     conexion = sqlite3.connect(nombre_db)
-
     cursor = conexion.cursor()
 
-    cursor.execute(
-        """
-        UPDATE usuarios
-        SET nombre = ?, celular = ?
-        WHERE cedula = ?
-        """,
-        (
-            nombre,
-            celular,
-            cedula
-        )
-    )
+    cursor.execute("""
+        DELETE FROM reservas
+        WHERE id = ?
+    """, (id_reserva,))
 
     conexion.commit()
     conexion.close()
+
+def actualizar_usuario(cedula, nombre, celular):
+    conexion = sqlite3.connect(nombre_db)
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        UPDATE usuarios
+        SET nombre = ?, celular = ?
+        WHERE cedula = ?
+    """, (nombre, celular, cedula))
+
+    conexion.commit()
+    conexion.close()
+
+def obtener_reservas_usuario(usuario_id):
+
+    conexion = sqlite3.connect(nombre_db)
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        SELECT id, destino, horario, fecha, carro, estado
+        FROM reservas
+        WHERE usuario_id = ?
+    """, (usuario_id,))
+
+    reservas = cursor.fetchall()
+    conexion.close()
+
+    return reservas
 
 if __name__ == "__main__":
     
@@ -301,6 +284,7 @@ if __name__ == "__main__":
     crear_tabla_reservas()
 
     insertar_usuario("Alejandro Villalobos", "alejo@example.com", "12345", "678910")
+    insertar_usuario("Alejandro", "test@revite.com", "12345", "300123")
     insertar_usuario("Ana Cortes", "cortes@example.com", "678910", "12345")
     
     insertar_reserva(1, "Bogota", "6:00", "10-05-2026", "ABC123")

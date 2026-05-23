@@ -245,7 +245,7 @@ Entre ellas:
 
 # Autor
 
-**Sergio Moncada**
+**Sergio Villalobos**
 
 ---
 

@@ -1,7 +1,5 @@
 from datetime import datetime
 
-
-
 def validar_campos(
     destino,
     horario,

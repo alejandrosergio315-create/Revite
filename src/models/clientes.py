@@ -7,7 +7,7 @@ class Cliente():
         self.__foto = foto
         self.__activo = activo
     
-    # GETTERS
+   
     def get_cedula(self): 
         return self.__cedula
     
@@ -26,7 +26,7 @@ class Cliente():
     def get_activo(self):
         return self.__activo
     
-    #SETTERS
+   
     def set_cedula(self, nueva_cedula): 
         self.__cedula = nueva_cedula
     

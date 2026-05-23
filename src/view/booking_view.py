@@ -5,15 +5,19 @@ from models.reservas import Reserva
 from controllers.mensajes import mostrar_mensaje
 from controllers.validaciones import validar_campos
 from controllers.validaciones import validar_fecha
+from controllers.sesion import Sesion
+from controllers.decorador import cargar_reservas
 
 from database.main_sqlite3 import insertar_usuario, insertar_reserva, buscar_usuario_cedula, actualizar_usuario
 
 
 def booking_view(page):
-    reservas = []
+    
     usuario_actual = {"cedula": "", "nombre": "", "apellido": "", "celular": ""}
+    sesion = Sesion()
+    reservas = []
 
-    # -------- CAMPOS --------
+    
     cedula_busqueda = ft.TextField(hint_text="Ingrese su cédula", width=300)
     
     registro_cedula = ft.TextField(hint_text="Cédula", width=300)
@@ -39,7 +43,7 @@ def booking_view(page):
     lista_reservas = ft.Column()
     lista_mensajes = ft.Column()
 
-    # -------- CONTENEDORES --------
+    
     inicio = ft.Column(horizontal_alignment="center")
     barra_tabs = ft.Row(alignment="center", visible=False)
     vista_reservar = ft.Column(visible=False, horizontal_alignment="center")
@@ -82,24 +86,34 @@ def booking_view(page):
         elif nombre == "perfil":
             vista_perfil.visible = True
 
-        actualizar_reservas()
+        actualizar_reservas(
+            usuario=usuario_actual,
+            reservas=reservas
+        )
         actualizar_perfil()
         page.update()
 
     def entrar_cliente(e):
         usuario = buscar_usuario_cedula(cedula_busqueda.value)
-        
+
+        print("DEBUG usuario:", usuario)
+
         if not usuario:
             mostrar_mensaje(lista_reservas, page, "Cliente no encontrado", error=True)
+            page.update()
             return
-        
+
+        usuario_actual["id"] = usuario[0]
         usuario_actual["nombre"] = usuario[1]
         usuario_actual["cedula"] = usuario[3]
         usuario_actual["celular"] = usuario[4]
-        
+
+        sesion.iniciar_sesion(usuario_actual)
+
         inicio.visible = False
         barra_tabs.visible = True
-        
+
+        page.update()
         cambiar_vista("reservar")
 
     def registrar_nuevo(e):
@@ -205,65 +219,64 @@ def booking_view(page):
     def eliminar_reserva(reserva):
         if reserva in reservas:
             reservas.remove(reserva)
-            actualizar_reservas()
+            actualizar_reservas(
+                usuario=usuario_actual,
+                reservas=reservas
+            )
             page.update()
         
 
+    @cargar_reservas
+    def actualizar_reservas(**kwargs):
 
-    def actualizar_reservas():
         lista_reservas.controls.clear()
 
         for r in reservas:
-            if r.get_cliente().get_cedula() == usuario_actual["cedula"]:
 
-                texto = ft.Text(
-                    r.imprimir()
+            reserva_id = r.get_id()
+            destino = r.get_destino()
+            horario = r.get_hora_salida()
+            fecha = r.get_fecha_salida()
+            carro = r.get_carro()
+
+            texto = ft.Text(
+                f"{destino} - {horario} - {fecha} - {carro}"
+            )
+
+            boton_confirmar = ft.ElevatedButton(
+                "Confirmar"
+            )
+
+            boton_confirmar.on_click = (
+                lambda e,
+                rr=r,
+                t=texto,
+                b=boton_confirmar:
+                confirmar_reserva(rr, t, b)
+            )
+
+            # 🔥 BOTÓN ELIMINAR CORREGIDO
+            boton_eliminar = ft.ElevatedButton(
+                "Eliminar",
+                color="white",
+                bgcolor="red",
+                on_click=lambda e, rr=r: eliminar_reserva(rr)
+            )
+
+            lista_reservas.controls.append(
+                ft.Container(
+                    content=ft.Column([
+                        texto,
+                        ft.Row([
+                            boton_confirmar,
+                            boton_eliminar
+                        ])
+                    ]),
+                    bgcolor="#F5F5F5",
+                    border_radius=15,
+                    padding=15
                 )
-
-                boton_confirmar = ft.ElevatedButton(
-                    "Confirmar"
-                )
-
-                boton_confirmar.on_click = (
-                    lambda e,
-                    rr=r,
-                    t=texto,
-                    b=boton_confirmar:
-                    confirmar_reserva(
-                        rr,
-                        t,
-                        b
-                    )
-                )
-
-                boton_eliminar = ft.ElevatedButton(
-                    "Eliminar",
-                    color="white",
-                    bgcolor="red",
-                    on_click=lambda e, rr=r:
-                    eliminar_reserva(rr)
-                )
-
-                lista_reservas.controls.append(
-                    ft.Container(
-                        content=ft.Column(
-                            [
-                                texto,
-
-                                ft.Row(
-                                    [
-                                        boton_confirmar,
-                                        boton_eliminar
-                                    ]
-                                )
-                            ]
-                        ),
-
-                        bgcolor="#F5F5F5",
-                        border_radius=15,
-                        padding=15
-                    )
-                )
+            )
 
     def actualizar_perfil():
         perfil_cedula.value = f"Cédula: {usuario_actual['cedula']}"
@@ -294,7 +307,6 @@ def booking_view(page):
         actualizar_perfil()   
         page.update()
     
-    # -------- COMPONENTES --------
     barra_tabs.controls = [
         ft.ElevatedButton("Reservar", on_click=lambda e: cambiar_vista("reservar")),
         ft.ElevatedButton("Mis reservas", on_click=lambda e: cambiar_vista("mis_reservas")),
@@ -302,13 +314,24 @@ def booking_view(page):
     ]
 
     inicio.controls = [
-        ft.Text("ReViTe", size=32, weight="bold"),
-        ft.Text("Reserva tu viaje"),
+
+        ft.Text(
+            "Reserva tu viaje"
+        ),
+
         cedula_busqueda,
+
         ft.Row([
-            ft.ElevatedButton("Soy cliente", on_click=entrar_cliente),
-            ft.ElevatedButton("Soy nuevo", on_click=entrar_nuevo),
-        ], 
+            ft.ElevatedButton(
+                "Soy cliente",
+                on_click=entrar_cliente
+            ),
+
+            ft.ElevatedButton(
+                "Soy nuevo",
+                on_click=entrar_nuevo
+            ),
+        ],
         alignment="center"
         )
     ]
@@ -412,12 +435,28 @@ def booking_view(page):
     return ft.Container(
         padding=30,
         content=ft.Column([
+
+            
+            ft.Image(
+                src="logo.png",
+                width=320,
+                height=320
+            ),
+
             barra_tabs,
+
             inicio,
+
             vista_reservar,
+
             vista_reservas,
+
             vista_perfil,
-        ], spacing=20, scroll="auto")
+
+        ],
+        horizontal_alignment="center",
+        spacing=20,
+        scroll="auto")
     )
 
 

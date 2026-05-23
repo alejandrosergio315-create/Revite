@@ -5,7 +5,7 @@ class Carro:
         self.__modelo = modelo
         self.__en_mantenimiento = en_mantenimiento
     
-    # GETTERS
+
     def get_placa(self):
         return self.__placa
     
@@ -31,7 +31,7 @@ class Carro:
     def set_en_mantenimiento(self, nuevo_mantenimiento):
         self.__en_mantenimiento = nuevo_mantenimiento
 
-    # METODOS
+
     def imprimir_carro(self):
         return f"Placa: {self.__placa} | Marca: {self.__marca} | Modelo: {self.__modelo} | Mantenimiento: {self.__en_mantenimiento}"
     

@@ -1,11 +1,12 @@
 class Reserva:
-    def __init__(self, cliente, destino, hora_salida, fecha_salida, carro, confirmado=False):
+    def __init__(self, cliente, destino, hora_salida, fecha_salida, carro, confirmado=False, reserva_id=None):
         self.__cliente = cliente
         self.__destino = destino
         self.__hora_salida = hora_salida
         self.__fecha_salida = fecha_salida
         self.__carro = carro
         self.__confirmado = confirmado
+        self.__reserva_id = reserva_id
     
 
     # GETTERS
@@ -26,6 +27,9 @@ class Reserva:
     
     def get_confirmado(self):
         return self.__confirmado
+    
+    def get_id(self):
+        return self.__reserva_id
     
     
     # SETTERS
