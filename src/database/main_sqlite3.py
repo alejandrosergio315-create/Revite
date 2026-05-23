@@ -292,7 +292,7 @@ if __name__ == "__main__":
 
     actualizar_reserva(1, "Medellin", "8:00", "20-05-2026", "XYZ999")
 
-    eliminar_reserva(2)
+    eliminar_reserva_db(2)
     
     consultar_usuarios()
     
