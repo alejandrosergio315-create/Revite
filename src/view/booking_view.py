@@ -13,7 +13,7 @@ from database.main_sqlite3 import insertar_usuario, insertar_reserva, buscar_usu
 
 def booking_view(page):
     
-    usuario_actual = {"cedula": "", "nombre": "", "apellido": "", "celular": ""}
+    usuario_actual = {"id": None, "cedula": "", "nombre": "", "apellido": "", "celular": ""}
     sesion = Sesion()
     reservas = []
 
@@ -240,22 +240,13 @@ def booking_view(page):
             carro = r.get_carro()
 
             texto = ft.Text(
-                f"{destino} - {horario} - {fecha} - {carro}"
+                f"{destino} - {horario} - {fecha} - {carro.get_placa()}"
             )
 
-            boton_confirmar = ft.ElevatedButton(
-                "Confirmar"
-            )
+            boton_confirmar = ft.ElevatedButton("Confirmar")
 
-            boton_confirmar.on_click = (
-                lambda e,
-                rr=r,
-                t=texto,
-                b=boton_confirmar:
-                confirmar_reserva(rr, t, b)
-            )
+            boton_confirmar.on_click = lambda e, rr=r, t=texto, b=boton_confirmar: confirmar_reserva(rr, t, b)
 
-            # 🔥 BOTÓN ELIMINAR CORREGIDO
             boton_eliminar = ft.ElevatedButton(
                 "Eliminar",
                 color="white",
