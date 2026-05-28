@@ -1,7 +1,7 @@
-from database.main_sqlite3 import obtener_reservas_usuario
-from models.reservas import Reserva
-from models.clientes import Cliente
-from models.carros import Carro
+from src.database.main_sqlite3 import obtener_reservas_usuario
+from src.models.reservas import Reserva
+from src.models.clientes import Cliente
+from src.models.carros import Carro
 
 
 def cargar_reservas(func):

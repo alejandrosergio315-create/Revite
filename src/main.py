@@ -1,7 +1,18 @@
+import sys
+import os
 import flet as ft
-from view.booking_view import booking_view
 
-from database.main_sqlite3 import crear_base_de_datos, crear_tabla_reservas
+if getattr(sys, 'frozen', False):
+    base_path = sys._MEIPASS
+else:
+    base_path = os.path.dirname(os.path.abspath(__file__))
+
+assets_path = os.path.join(base_path, "..", "assets")
+
+
+from src.view.booking_view import booking_view
+
+from src.database.main_sqlite3 import crear_base_de_datos, crear_tabla_reservas
 
 def main(page: ft.Page):
 
@@ -20,7 +31,7 @@ def main(page: ft.Page):
 
 ft.app(
     target=main,
-    assets_dir="../assets"
+    assets_dir="assets"
 )
 
 

@@ -1,14 +1,14 @@
 import flet as ft
-from models.clientes import Cliente
-from models.carros import Carro
-from models.reservas import Reserva
-from controllers.mensajes import mostrar_mensaje
-from controllers.validaciones import validar_campos
-from controllers.validaciones import validar_fecha
-from controllers.sesion import Sesion
-from controllers.decorador import cargar_reservas
+from src.models.clientes import Cliente
+from src.models.carros import Carro
+from src.models.reservas import Reserva
+from src.controllers.mensajes import mostrar_mensaje
+from src.controllers.validaciones import validar_campos
+from src.controllers.validaciones import validar_fecha
+from src.controllers.sesion import Sesion
+from src.controllers.decorador import cargar_reservas
 
-from database.main_sqlite3 import insertar_usuario, insertar_reserva, buscar_usuario_cedula, actualizar_usuario
+from src.database.main_sqlite3 import insertar_usuario, insertar_reserva, buscar_usuario_cedula, actualizar_usuario
 
 
 def booking_view(page):
