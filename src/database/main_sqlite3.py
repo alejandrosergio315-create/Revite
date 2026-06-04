@@ -1,6 +1,7 @@
 import sqlite3
 import os
 
+
 os.makedirs("base", exist_ok=True)
 
 
@@ -8,48 +9,42 @@ nombre_db = "base/Revite.db"
 
 
 
+def conectar():
+    return sqlite3.connect(nombre_db)
+
 
 def crear_base_de_datos():
-    
     try:
-        
-        conexion = sqlite3.connect(nombre_db)
-
+        conexion = conectar()
         cursor = conexion.cursor()
 
         cursor.execute("""
-                    
-                       CREATE TABLE IF NOT EXISTS usuarios (
-                       
-                       id INTEGER PRIMARY KEY AUTOINCREMENT,
-                       
-                       nombre TEXT NOT NULL,
-                       
-                       correo TEXT UNIQUE NOT NULL,
-                       
-                       cedula TEXT UNIQUE NOT NULL,
-                       
-                       celular TEXT NOT NULL,
-                       
-                       fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                nombre TEXT NOT NULL,
+                correo TEXT UNIQUE NOT NULL,
+                cedula TEXT UNIQUE NOT NULL,
+                celular TEXT NOT NULL,
+                password TEXT NOT NULL,
+                fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
 
         conexion.commit()
-        print(f"Base de datos '{nombre_db}' y tabla 'usuarios' creadas con éxito.")
+        print("✅ Tabla usuarios creada correctamente")
 
     except sqlite3.Error as e:
-        print(f"Error al conectar o crear la base de datos: {e}")
+        print(f"❌ Error: {e}")
 
     finally:
-        if conexion:
-            conexion.close()
+        conexion.close()
 
 
 def crear_tabla_reservas():
     try:
-        conexion = sqlite3.connect(nombre_db)
+        conexion = conectar()
         cursor = conexion.cursor()
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS reservas (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,197 +54,135 @@ def crear_tabla_reservas():
                 fecha TEXT NOT NULL,
                 carro TEXT NOT NULL,
                 estado TEXT DEFAULT 'Pendiente',
-                       
-                FOREIGN KEY (usuario_id)
-                REFERENCES usuarios(id)
+                FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
             )
         """)
 
         conexion.commit()
+        print("✅ Tabla reservas creada correctamente")
 
-        print("Tabla 'reservas' creada correctamente.")
-    
     except sqlite3.Error as e:
-        print(f"Error: {e}")
-    
+        print(f"❌ Error: {e}")
+
     finally:
-
-        if conexion:
-            conexion.close()
+        conexion.close()
 
 
-
-def insertar_usuario(nombre, correo, cedula, celular):
-    
+def insertar_usuario(nombre, correo, cedula, celular, password):
     try:
-        conexion = sqlite3.connect(nombre_db)
-        
+        conexion = conectar()
         cursor = conexion.cursor()
 
-        sql = "INSERT INTO usuarios (nombre, correo, cedula, celular) VALUES (?, ?, ?, ?)"
-        
-        valores = (nombre, correo, cedula, celular)
-        
-        cursor.execute(sql, valores)
-        
+        cursor.execute(
+            "INSERT INTO usuarios (nombre, correo, cedula, celular, password) VALUES (?, ?, ?, ?, ?)",
+            (nombre, correo, cedula, celular, password)
+        )
+
         conexion.commit()
-        print("Usuario insertado exitosamente.")
-    
-    except sqlite3.IntegrityError as e:
-        print(f"Error: el correo {correo} ya está registrado. {e}")
+        print("✅ Usuario registrado correctamente")
 
-    
-    except sqlite3.Error as e:
-        print(f"Error al insertar el usuario: {e}")
-    
+    except sqlite3.IntegrityError:
+        print("❌ Usuario ya existe (correo o cédula duplicada)")
+
     finally:
-        if conexion:
-            conexion.close()
-
-
-
-def consultar_usuarios():
-    
-    try:
-        
-        conexion = sqlite3.connect(nombre_db)
-        
-        cursor = conexion.cursor()
-
-        cursor.execute("SELECT id, nombre, correo, cedula, celular, fecha_registro FROM usuarios")
-        
-        usuarios = cursor.fetchall()
-        
-        for usuario in usuarios:
-            print(*usuario)
-
-    except sqlite3.Error as e:
-        print(f"Error al consultar los usuarios: {e}")
-    
-    finally:
-        if conexion:
-            conexion.close()
-
-
+        conexion.close()
 
 def buscar_usuario_cedula(cedula):
-
-    try:
-
-        conexion = sqlite3.connect(nombre_db)
-
-        cursor = conexion.cursor()
-
-        sql = """
-        SELECT *
-        
-        FROM usuarios
-        
-        WHERE cedula = ?
-        
-        """
-        cursor.execute(sql, (cedula,))
-
-        usuario = cursor.fetchone()
-
-        return usuario
-    
-
-    except sqlite3.Error as e:
-
-        print(f"Error al buscar usuario: {e}")
-    
-    finally:
-
-        if conexion:
-            conexion.close()
-
-
-
-
-def insertar_reserva(usuario_id, destino, horario, fecha, carro):
-
-    try:
-
-        conexion = sqlite3.connect(nombre_db)
-
-        cursor = conexion.cursor()
-
-        sql = """
-        
-        INSERT INTO reservas (usuario_id, destino, horario, fecha, carro ) VALUES (?, ?, ?, ?, ?)"""
-
-        valores = (usuario_id, destino, horario, fecha, carro)
-
-        cursor.execute(sql, valores)
-
-        conexion.commit()
-
-        print("Reserva insertada correctamente. ")
-    
-    except sqlite3.Error as e:
-
-        print(f"Error al insertar reserva: {e}")
-
-    finally:
-        if conexion:
-            conexion.close()
-
-
-
-
-def actualizar_reserva(id_reserva, destino, horario, fecha, carro):
-
-    try:
-
-        conexion = sqlite3.connect(nombre_db)
-        cursor = conexion.cursor()
-
-        sql = """
-        
-        UPDATE reservas
-        
-        SET destino = ?, 
-            horario = ?, 
-            fecha = ?, 
-            carro = ?
-        
-        WHERE id = ?
-        """
-
-        valores = (destino, horario, fecha, carro, id_reserva)
-
-        cursor.execute(sql, valores)
-
-        conexion.commit()
-
-        print("Reserva actualizada correctamente")
-    
-    except sqlite3.Error as e:
-
-        print(f"Error al actualizar reserva: {e}")
-    
-    finally:
-        
-        if conexion:
-            conexion.close()
-
-
-
-def eliminar_reserva_db(id_reserva):
     conexion = sqlite3.connect(nombre_db)
     cursor = conexion.cursor()
 
     cursor.execute("""
-        DELETE FROM reservas
-        WHERE id = ?
-    """, (id_reserva,))
+        SELECT *
+        FROM usuarios
+        WHERE cedula = ?
+    """, (cedula,))
+
+    usuario = cursor.fetchone()
+    conexion.close()
+
+    return usuario
+
+def login_usuario(cedula, password):
+    conexion = conectar()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        SELECT * FROM usuarios
+        WHERE cedula = ? AND password = ?
+    """, (cedula, password))
+
+    usuario = cursor.fetchone()
+    conexion.close()
+
+    return usuario
+
+
+
+def consultar_usuarios():
+    try:
+        conexion = conectar()
+        cursor = conexion.cursor()
+
+        cursor.execute("SELECT id, nombre, correo, cedula, celular FROM usuarios")
+
+        for usuario in cursor.fetchall():
+            print(usuario)
+
+    finally:
+        conexion.close()
+
+
+
+def insertar_reserva(usuario_id, destino, horario, fecha, carro):
+    try:
+        conexion = conectar()
+        cursor = conexion.cursor()
+
+        cursor.execute("""
+            INSERT INTO reservas (usuario_id, destino, horario, fecha, carro)
+            VALUES (?, ?, ?, ?, ?)
+        """, (usuario_id, destino, horario, fecha, carro))
+
+        conexion.commit()
+        print("✅ Reserva creada")
+
+    finally:
+        conexion.close()
+
+
+
+def actualizar_reserva(id_reserva, destino, horario, fecha, carro):
+    try:
+        conexion = conectar()
+        cursor = conexion.cursor()
+
+        cursor.execute("""
+            UPDATE reservas
+            SET destino = ?, horario = ?, fecha = ?, carro = ?
+            WHERE id = ?
+        """, (destino, horario, fecha, carro, id_reserva))
+
+        conexion.commit()
+        print("✅ Reserva actualizada")
+
+    finally:
+        conexion.close()
+
+
+
+def eliminar_reserva(id_reserva):
+    conexion = conectar()
+    cursor = conexion.cursor()
+
+    cursor.execute("DELETE FROM reservas WHERE id = ?", (id_reserva,))
 
     conexion.commit()
     conexion.close()
 
+
+
 def actualizar_usuario(cedula, nombre, celular):
-    conexion = sqlite3.connect(nombre_db)
+    conexion = conectar()
     cursor = conexion.cursor()
 
     cursor.execute("""
@@ -261,9 +194,10 @@ def actualizar_usuario(cedula, nombre, celular):
     conexion.commit()
     conexion.close()
 
-def obtener_reservas_usuario(usuario_id):
 
-    conexion = sqlite3.connect(nombre_db)
+
+def obtener_reservas_usuario(usuario_id):
+    conexion = conectar()
     cursor = conexion.cursor()
 
     cursor.execute("""
@@ -277,24 +211,258 @@ def obtener_reservas_usuario(usuario_id):
 
     return reservas
 
-if __name__ == "__main__":
-    
-    crear_base_de_datos()
+def crear_tabla_carros():
 
+    conexion = sqlite3.connect(nombre_db)
+
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS carros(
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            placa TEXT NOT NULL,
+
+            marca TEXT NOT NULL,
+
+            modelo TEXT NOT NULL,
+
+            ciudad TEXT NOT NULL
+        )
+    """)
+
+    conexion.commit()
+    conexion.close()
+
+def insertar_carro(
+    placa,
+    marca,
+    modelo,
+    ciudad
+):
+
+    conexion = sqlite3.connect(nombre_db)
+
+    cursor = conexion.cursor()
+
+    cursor.execute(
+        """
+        INSERT INTO carros(
+            placa,
+            marca,
+            modelo,
+            ciudad
+        )
+        VALUES (?, ?, ?, ?)
+        """,
+        (
+            placa,
+            marca,
+            modelo,
+            ciudad
+        )
+    )
+
+    conexion.commit()
+    conexion.close()
+
+def obtener_reservas():
+
+    conexion = sqlite3.connect(nombre_db)
+
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM reservas
+    """)
+
+    reservas = cursor.fetchall()
+
+    conexion.close()
+
+    return reservas
+
+def confirmar_reserva(id_reserva):
+
+    conexion = conectar()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        UPDATE reservas
+        SET estado = 'Confirmada'
+        WHERE id = ?
+    """, (id_reserva,))
+
+    conexion.commit()
+    conexion.close()
+
+def crear_tabla_conductores():
+
+    conexion = conectar()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS conductores(
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            nombre TEXT NOT NULL,
+
+            cedula TEXT UNIQUE NOT NULL,
+
+            celular TEXT NOT NULL,
+
+            placa TEXT,
+            
+            ciudad TEXT NOT NULL,
+
+            password TEXT NOT NULL
+        )
+    """)
+
+    conexion.commit()
+    conexion.close()
+
+def insertar_conductor(
+    nombre,
+    cedula,
+    celular,
+    placa,
+    ciudad,
+    password
+):
+
+    conexion = conectar()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        INSERT INTO conductores(
+            nombre,
+            cedula,
+            celular,
+            placa,
+            ciudad,
+            password
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+    """,
+    (
+        nombre,
+        cedula,
+        celular,
+        placa,
+        ciudad,
+        password
+    ))
+
+    conexion.commit()
+    conexion.close()
+
+def login_conductor(
+    cedula,
+    password
+):
+
+    conexion = conectar()
+
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM conductores
+        WHERE cedula = ?
+        AND password = ?
+    """,
+    (
+        cedula,
+        password
+    ))
+
+    conductor = cursor.fetchone()
+
+    conexion.close()
+
+    return conductor
+
+def obtener_reservas_ciudad(ciudad):
+
+    conexion = conectar()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM reservas
+        WHERE destino = ?
+    """, (ciudad,))
+
+    reservas = cursor.fetchall()
+
+    conexion.close()
+
+    return reservas
+
+def buscar_conductor(cedula):
+
+    conexion = conectar()
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM conductores
+        WHERE cedula = ?
+    """, (cedula,))
+
+    conductor = cursor.fetchone()
+
+    conexion.close()
+
+    return conductor
+
+def obtener_carros_por_ciudad(ciudad):
+
+    conexion = conectar()
+
+    cursor = conexion.cursor()
+
+    cursor.execute("""
+        SELECT placa
+        FROM carros
+        WHERE ciudad = ?
+    """, (ciudad,))
+
+    carros = cursor.fetchall()
+
+    conexion.close()
+
+    return carros
+
+
+if __name__ == "__main__":
+
+    crear_base_de_datos()
     crear_tabla_reservas()
 
-    insertar_usuario("Alejandro Villalobos", "alejo@example.com", "12345", "678910")
-    insertar_usuario("Alejandro", "test@revite.com", "12345", "300123")
-    insertar_usuario("Ana Cortes", "cortes@example.com", "678910", "12345")
-    
-    insertar_reserva(1, "Bogota", "6:00", "10-05-2026", "ABC123")
-    insertar_reserva(2, "Ibague", "7:00", "11-05-2026", "DEF456")
+    # 🔥 Usuarios con contraseña
+    insertar_usuario("Alejandro", "alejo@test.com", "1234", "300123", "1234")
 
-    actualizar_reserva(1, "Medellin", "8:00", "20-05-2026", "XYZ999")
+    usuario = login_usuario("1234", "1234")
 
-    eliminar_reserva_db(2)
-    
-    consultar_usuarios()
+    insertar_conductor(
+        "Carlos Perez",
+        "123456",
+        "3001111111",
+        "ABC123",
+        "Bogota",
+        "1234"
+    )
+
+    if usuario:
+        print("✅ Login correcto:", usuario)
+    else:
+        print("❌ Login incorrecto")
+
     
 
     

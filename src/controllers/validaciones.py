@@ -21,7 +21,7 @@ def validar_fecha(fecha):
 
     fecha_reserva = datetime.strptime(
         fecha.value,
-        "%d-%m-%Y"
+        "%Y-%m-%d"
     )
 
     hoy = datetime.now()

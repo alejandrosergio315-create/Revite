@@ -1,14 +1,14 @@
 import flet as ft
-from src.models.clientes import Cliente
-from src.models.carros import Carro
-from src.models.reservas import Reserva
-from src.controllers.mensajes import mostrar_mensaje
-from src.controllers.validaciones import validar_campos
-from src.controllers.validaciones import validar_fecha
-from src.controllers.sesion import Sesion
-from src.controllers.decorador import cargar_reservas
+from models.clientes import Cliente
+from models.carros import Carro
+from models.reservas import Reserva
+from controllers.mensajes import mostrar_mensaje
+from controllers.validaciones import validar_campos
+from controllers.validaciones import validar_fecha
+from controllers.sesion import Sesion
+from controllers.decorador import cargar_reservas
 
-from src.database.main_sqlite3 import insertar_usuario, insertar_reserva, buscar_usuario_cedula, actualizar_usuario
+from database.main_sqlite3 import insertar_usuario, insertar_reserva, actualizar_usuario, login_usuario, buscar_usuario_cedula, obtener_carros_por_ciudad
 
 
 def booking_view(page):
@@ -25,6 +25,22 @@ def booking_view(page):
     registro_apellido = ft.TextField(hint_text="Apellido", width=300)
     registro_celular = ft.TextField(hint_text="Celular", width=300)
     
+    registro_password = ft.TextField(
+        hint_text="Contraseña",
+        password=True,
+        width=300
+    )
+
+    password_login = ft.TextField(
+        hint_text="Contraseña",
+        password=True,
+        width=300
+    )
+    
+    
+    
+
+    
     horario = ft.Dropdown(
         hint_text="Hora de salida",
         width=300,
@@ -39,6 +55,12 @@ def booking_view(page):
     fecha = ft.TextField(hint_text="Seleccione una fecha", read_only=True, width=300)
     
     seleccion_carro = ft.Dropdown(hint_text="Carro", width=300, options=[])
+    seleccion_sector = ft.Dropdown(
+        hint_text="Selecciona un sector",
+        width=300,
+        options=[],
+        disabled=True
+    )
     
     lista_reservas = ft.Column()
     lista_mensajes = ft.Column()
@@ -50,27 +72,8 @@ def booking_view(page):
     vista_reservas = ft.Column(visible=False)
     vista_perfil = ft.Column(visible=False)
 
-    # -------- DATOS --------
-    carros_por_ciudad = {
-    "Bogotá": [
-        Carro("ABC123", "Toyota", "2020"),
-        Carro("DEF456", "Ford", "2022"),
-        Carro("GHI789", "Mazda", "2021")
-    ],
-
-    "Ibagué": [
-        Carro("LXS029", "Chevrolet", "2023"),
-        Carro("JKL111", "Kia", "2020"),
-        Carro("MNO222", "Nissan", "2019")
-    ],
-
-    "Espinal": [
-        Carro("PQR333", "Hyundai", "2022"),
-        Carro("STU444", "Renault", "2021"),
-        Carro("VWX555", "Suzuki", "2020")
-    ]
-}
-    destino_actual = {"valor": None}
+    
+    
 
     # -------- FUNCIONES UI --------
     def cambiar_vista(nombre):
@@ -94,13 +97,18 @@ def booking_view(page):
         page.update()
 
     def entrar_cliente(e):
-        usuario = buscar_usuario_cedula(cedula_busqueda.value)
 
-        print("DEBUG usuario:", usuario)
+        if cedula_busqueda.value == "" or password_login.value == "":
+            mostrar_mensaje(lista_mensajes, page, "Completa los campos", error=True)
+            return
+
+        usuario = login_usuario(
+            cedula_busqueda.value,
+            password_login.value
+        )
 
         if not usuario:
-            mostrar_mensaje(lista_reservas, page, "Cliente no encontrado", error=True)
-            page.update()
+            mostrar_mensaje(lista_mensajes, page, "Cédula o contraseña incorrecta", error=True)
             return
 
         usuario_actual["id"] = usuario[0]
@@ -110,38 +118,49 @@ def booking_view(page):
 
         sesion.iniciar_sesion(usuario_actual)
 
+        mostrar_mensaje(lista_mensajes, page, "✅ Bienvenido")
+
         inicio.visible = False
         barra_tabs.visible = True
 
-        page.update()
         cambiar_vista("reservar")
 
     def registrar_nuevo(e):
-    
+
         if (
             registro_cedula.value == "" or
             registro_nombre.value == "" or
             registro_apellido.value == "" or
-            registro_celular.value == ""
+            registro_celular.value == "" or
+            registro_password.value == ""
         ):
+            mostrar_mensaje(lista_mensajes, page, "Completa todos los campos", error=True)
+            return
+
+        # ✅ Validar que no exista
+        if buscar_usuario_cedula(registro_cedula.value):
+            mostrar_mensaje(lista_mensajes, page, "La cédula ya existe", error=True)
             return
 
         insertar_usuario(
             registro_nombre.value,
             f"{registro_nombre.value.lower()}@revite.com",
             registro_cedula.value,
-            registro_celular.value
+            registro_celular.value,
+            registro_password.value,
         )
 
-        usuario_actual["cedula"] = registro_cedula.value
-        usuario_actual["nombre"] = registro_nombre.value
-        usuario_actual["apellido"] = registro_apellido.value
-        usuario_actual["celular"] = registro_celular.value
+        mostrar_mensaje(lista_mensajes, page, "✅ Usuario registrado")
 
-        inicio.visible = False
-        barra_tabs.visible = True
+        # ✅ Limpiar campos
+        registro_cedula.value = ""
+        registro_nombre.value = ""
+        registro_apellido.value = ""
+        registro_celular.value = ""
+        registro_password.value = ""
 
-        cambiar_vista("perfil")
+        page.update()
+
 
 
     def entrar_nuevo(e):
@@ -153,30 +172,79 @@ def booking_view(page):
             registro_nombre,
             registro_apellido,
             registro_celular,
+            registro_password,
 
             ft.ElevatedButton("Guardar registro", on_click=registrar_nuevo)
         ]
         page.update()
 
     def seleccionar_destino(ciudad):
+
         destino_actual["valor"] = ciudad
 
-        lista_opciones = []
+        # -------------------
+        # CARGAR CARROS
+        # -------------------
 
-        for c in carros_por_ciudad[ciudad]:
-            opcion = ft.dropdown.Option(c.get_placa())
-            lista_opciones.append(opcion)
+        seleccion_carro.options.clear()
 
-        seleccion_carro.options = lista_opciones
-        seleccion_carro.value = None
+        carros = obtener_carros_por_ciudad(ciudad)
+
+        for carro in carros:
+
+            seleccion_carro.options.append(
+                ft.dropdown.Option(carro[0])
+            )
+
+        # -------------------
+        # CARGAR SECTORES
+        # -------------------
+
+        seleccion_sector.options.clear()
+
+        sectores = sectores_por_ciudad.get(ciudad, [])
+
+        for sector in sectores:
+
+            seleccion_sector.options.append(
+                ft.dropdown.Option(sector)
+            )
+
+        seleccion_sector.disabled = False
+
         page.update()
 
     def seleccionar_fecha(e):
-        fecha.value = e.control.value.strftime("%d-%m-%Y")
+        fecha.value = e.control.value.strftime("%Y-%m-%d")
         page.update()
 
     calendario = ft.DatePicker(on_change=seleccionar_fecha)
     page.overlay.append(calendario)
+
+    destino_actual = {"valor": None}
+
+    sectores_por_ciudad = {
+        "Bogotá": [
+            "Suba",
+            "Kennedy",
+            "Chapinero",
+            "Usaquén"
+        ],
+
+        "Ibagué": [
+            "El Salado",
+            "Picaleña",
+            "Mirolindo",
+            "Centro"
+        ],
+
+        "Espinal": [
+            "Caballero y Góngora",
+            "Centro",
+            "Arkabal",
+            "Betania"
+        ]
+    }
 
     def reservar(e):
         if not validar_campos(destino_actual["valor"], horario, fecha, seleccion_carro):
@@ -197,17 +265,32 @@ def booking_view(page):
             True,
         )
 
-        carro = None
-        
-        for c in carros_por_ciudad[destino_actual["valor"]]:
-            if c.get_placa() == seleccion_carro.value:
-                carro = c
-                break
-        
-        nueva = Reserva(cliente, destino_actual["valor"], horario.value, fecha.value, carro)
-        
+        placa = seleccion_carro.value
+
+        carro = Carro(
+            placa,
+            "Sin marca",
+            "Sin modelo"
+        )
+
+        nueva = Reserva(
+            cliente,
+            destino_actual["valor"],
+            horario.value,
+            fecha.value,
+            carro
+        )
+
         reservas.append(nueva)
-        insertar_reserva(usuario_actual["cedula"],destino_actual["valor"],horario.value,fecha.value,carro.get_placa())
+
+        insertar_reserva(
+            usuario_actual["id"],
+            destino_actual["valor"],
+            horario.value,
+            fecha.value,
+            placa
+        )
+
         cambiar_vista("mis_reservas")
 
     def confirmar_reserva(reserva, texto, boton):
@@ -224,6 +307,15 @@ def booking_view(page):
                 reservas=reservas
             )
             page.update()
+    
+    def cerrar_sesion(e):
+
+        page.controls.clear()
+
+
+        page.add(booking_view(page))
+
+        page.update()
         
 
     @cargar_reservas
@@ -302,6 +394,7 @@ def booking_view(page):
         ft.ElevatedButton("Reservar", on_click=lambda e: cambiar_vista("reservar")),
         ft.ElevatedButton("Mis reservas", on_click=lambda e: cambiar_vista("mis_reservas")),
         ft.ElevatedButton("Mi perfil", on_click=lambda e: cambiar_vista("perfil")),
+        ft.ElevatedButton("Cerrar sesión", on_click=cerrar_sesion)
     ]
 
     inicio.controls = [
@@ -311,6 +404,7 @@ def booking_view(page):
         ),
 
         cedula_busqueda,
+        password_login,
 
         ft.Row([
             ft.ElevatedButton(
@@ -370,6 +464,7 @@ def booking_view(page):
         ),
 
         seleccion_carro,
+        seleccion_sector,
 
         ft.ElevatedButton(
             "Reservar",
